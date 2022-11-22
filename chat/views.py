@@ -2,10 +2,12 @@ from django.http import HttpResponse,JsonResponse
 from django.shortcuts import render
 from django.core.files.storage import FileSystemStorage
 from django.views.decorators.csrf import csrf_exempt
-from chat.models import Room,FileModel
+from chat.models import Room,FileModel,Message
 from core.settings import BASE_DIR
 from django.core.files.storage import FileSystemStorage
 from django.http import HttpResponseRedirect
+from django.http import JsonResponse
+from django.views.decorators.csrf import ensure_csrf_cookie
 
 
 
@@ -23,12 +25,29 @@ def room_view(request, room_name):
 
 @csrf_exempt
 def Imagesend(request):
-    if request.method == "POST" and request.FILES['file_upload']:
-        print("BBBBBBBBBBBBB")
-        TagID = request.FILES['file_upload']
-        print(type(TagID))
-        data=FileModel(doc=TagID)
-        data.save()
+    user_obj=Message.objects.filter(user_id =  request.user.id).last()
+    print(user_obj,"---rishi----")
+    if request.method == "POST":
+        img = request.FILES.getlist('files[]',None)
+        # print(img,"--------- ")
+        fullfil = img[0]
+        print(fullfil," #######----")
+        strfile = str(fullfil)
+        extention = strfile.split(".")[-1]
+        a=''
+        if extention == 'jpeg' or extention =='png' or extention == "jpg" or extention =="img" :
+            a='image'
+        elif extention == 'mp4':
+            a='video'
+        else:
+            a='others'
+        print()
+        
+        image_save=FileModel(doc=img[0])
+        image_save.save()
+        print(image_save.doc.url,"---9***d99")
+        return JsonResponse({'url':image_save.doc.url,'msgtype':a})
+
         
 
 

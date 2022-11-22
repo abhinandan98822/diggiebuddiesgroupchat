@@ -17,7 +17,9 @@
                 background-color: #f8fbf6;
                 resize: none;
                 border-radius: 30px;
-            
+                overflow: "auto";
+                max-height: "auto"; 
+
             }
 
             #onlineUsersSelector {
@@ -80,14 +82,15 @@
                 <div class="col-12 col-md-8">
                     <div class="mb-2">
                         <label for="chatLog">Room::🏡 {{ room.name }}</label>
-                        <textarea class="form-control" id="chatLog" readonly></textarea>
+                        
+                        <div class="form-control" id="chatLog" style="overflow-y:scroll;"></div>
                         
                     </div>
                     <div class="input-group">
                         <div>
                             <form method="POST" class="post-form" enctype="multipart/form-data" action="/image/send">  
                             <input type="file" name="file_upload" id="fileupload" multiple="multiple" />
-                            <img id="blah" src="#" />
+                            <!-- <img id="blah" src="#" /> -->
                             
                             
                             
@@ -97,7 +100,7 @@
                         
                         <input type="text" class="form-control-msgbox" id="chatMessageInput" placeholder="Enter your chat message" >
                         <div class="input-group-append">
-                            <button class="btn btn-success" id="chatMessageSend" type="button" onclick="uploadFile()">⌲</button>
+                            <button class="btn btn-success" id="chatMessageSend" type="button">⌲</button>
                         </div>
                     </form>
                        
@@ -160,6 +163,7 @@ chatMessageSend.onclick = function() {
     if (chatMessageInput.value.length === 0) return;
     chatSocket.send(JSON.stringify({
         "message": chatMessageInput.value,
+        'file_type': 'text'
     }));
     chatMessageInput.value = "";
 };
@@ -206,7 +210,19 @@ function connect() {
 
     switch (data.type) {
         case "chat_message":
-            chatLog.value += data.user +":" + data.message + "\n";  // new
+            if (data.file_type  == 'image'){
+                chatLog.innerHTML += data.user +":"+`<image src='${data.message}' width='170px'>`+ "<br>"+"<br>";  // new
+            }
+            else if(data.file_type=='video'){
+                chatLog.innerHTML+=data.user +":"+`<video width='170px' height='150px' controls><source src='${data.message}' ></video>`+"<br>"+"<br>"
+            }
+            else if(data.file_type=='others'){
+                chatLog.innerHTML+=data.user +":"+`<a href="${data.message}" target="_blank">${data.message.slice(41,)}</a>`+"<br>"+"<br>"
+            }
+            else{
+                chatLog.innerHTML += data.user +":" + data.message + "<br>"+"<br>";  // new
+            }
+            
             break;
         case "user_list":
             for (let i = 0; i < data.users.length; i++) {
@@ -224,13 +240,6 @@ function connect() {
             onlineUsersSelectorRemove(data.user);
             break;
 
-        case "private_message":
-            chatLog.value += "PM from " + data.user + ": " + data.message + "\n";
-            break;
-        case "private_message_delivered":
-            chatLog.value += "PM to " + data.target + ": " + data.message + "\n";
-            break;
-    
         default:
             console.error("Unknown message type!");
             break;
@@ -250,132 +259,91 @@ function connect() {
 }
 connect();
 
-</script>
 
-  <script>
-     $('#chatMessageSend').click(function(){
-       $('#blah').remove()
-     })
-  </script>
 
-<script>
-$('#chatMessageSend').click(function() {
+  
 
-   setInterval('refreshPage()', 1000);
-});
+    
+        $("#chatMessageSend").click(function(){
+        // alert("rishi");
 
-function refreshPage() { 
-   location.reload(); 
-}
-
-function readURL(input) {
-    if (input.files && input.files[0]) {
-        var reader = new FileReader();
-
-        reader.onload = function (e) {
-            $('#blah').attr('src', e.target.result);
+        var form_data = new FormData()
+        var ins = document.getElementById("fileupload").files.length;
+        // alert(ins)
+        for(var x = 0; x<ins;x++){
+            form_data.append("files[]",document.getElementById("fileupload").files[x]);
+            
         }
 
-        reader.readAsDataURL(input.files[0]);
-    }
-}
+        csrf_token = $("input[name=csrfmiddlewaretoken").val();
+        form_data.append('csrfmiddlewaretoken',csrf_token);
+        console.log(form_data,"-------");
 
-$("#fileupload").change(function(){
-    readURL(this);
-});
+        $.ajax({
+            url:"{% url 'imagesend' %}",
+            cache:false,
+            dataType:"json",
+            contentType:false,
+            processData:false,
+            type:"POST",
+            data: form_data,
+            success: function(response){
+                console.log(response.url)
+                let hostname = window.location.origin
+                console.log(hostname+response.url)
 
-</script>
-<script>
-    function sendimg(url){
-  alert(url);
-}
-function timeSince(date) {
+                let img_url = hostname+response.url
+                console.log(response.msgtype)
 
-var seconds = Math.floor((new Date() - date) / 1000);
 
-var interval = seconds / 31536000;
-
-if (interval > 1) {
-    return Math.floor(interval) + " years";
-}
-interval = seconds / 2592000;
-if (interval > 1) {
-    return Math.floor(interval) + " months";
-}
-interval = seconds / 86400;
-if (interval > 1) {
-    return Math.floor(interval) + " days";
-}
-interval = seconds / 3600;
-if (interval > 1) {
-    return Math.floor(interval) + " hours";
-}
-interval = seconds / 60;
-if (interval > 1) {
-    return Math.floor(interval) + " minutes";
-}
-return Math.floor(seconds) + " seconds";
-}
- 
-$("#chatMessageSend").click(function(){
-          var form_data = new FormData()
-          var ins = document.getElementById('fileupload').files.length;
-          alert(ins)
-          
-          if (ins == 0){
-            $("#msg").html('<div class="alert alert-danger" role="alert">Select at least one file</div>');
-            return;
-          }
-
-          for(var x = 0; x < ins; x++){
-            form_data.append('files[]',document.getElementById('fileupload').files[x]);
-          }
-
-          csrf_token = $("input[name=csrfmiddlewaretoken").val();
-          form_data.append('csrfmiddlewaretoken',csrf_token);
-          console.log(form_data);
-
-          $.ajax({
-            url:"",
-            cache : false,
-            dataType: 'json',
-            contentType : false,
-            processData : false,
-            type : 'POST',
-            data : form_data,
-
-            success:function(response){
-              //$("#msg").html(response.msg);
-              console.log(response.url)
-              let hostname = window.location.origin;
-              console.log(hostname + response.url)
-              let imgurl= hostname + response.url
-              if (response.msgtype == 'image'){
-                var msgtype = 'image';
-              }
-              else if (response.msgtype == 'video')
-              {
-                var msgtype = 'video';
-              }
-              
-              socket.send(JSON.stringify({
-                'message':imgurl,
-                'username':reciever_id,
-                'file_type':msgtype
-            }));
-
-            },
-            error: function(response){
-              $("#msg").html(response.message);
-
+                if(response.msgtype == 'image'){
+                    var msgtype = 'image';
+                    console.log(msgtype)
+                    
+                }
+                else if(response.msgtype == 'video'){
+                    var msgtype = 'video';
+                    
+                }
+                else if(response.msgtype == 'others'){
+                    var msgtype = 'others';   
+                }
+                chatSocket.send(JSON.stringify({
+                    'message':img_url,
+                    'file_type':msgtype
+                }))
+                document.getElementById('fileupload').value=''
             }
-          })
-          document.getElementById('fileupload').value="";
-
-
         })
-</script>
+    })
 
+
+
+</script>    
+
+
+
+   <!-- <script>
+        $(document).ready(function() {
+            $('input[type="file"]').change(function(e) {
+                var filename = e.target.files[0].name;
+                alert(filename)
+                $ajax({
+                    type:"POST",
+                    dataType:"json",
+                    url: "http://127.0.0.1:8001/chat/image/send",  
+                    enctype:'multipart/form-data',
+                    data: {"get_file": filename,
+                           csrfmiddlewaretoken:$("[name=csrfmiddlewaretoken]").val()},
+                    success: function(result) {
+                    console.log("---======")
+                    alert(result.d);
+                }       
+
+                })
+            });
+        });
+    </script>  -->
 
 
 </body>
